@@ -1,13 +1,18 @@
 import {computed, inject, Injectable, signal} from '@angular/core';
 import {environment} from '../../environments/enviroments';
-import {HttpClient} from '@angular/common/http';
-import {AuthStatus, LoginResponse, User} from '../interfaces';
-import {catchError, map, Observable, of, tap, throwError} from 'rxjs';
+import {HttpClient, HttpHeaders} from '@angular/common/http';
+import {AuthStatus, CheckTokenResponse, LoginResponse, User} from '../interfaces';
+import {catchError, map, Observable, of, throwError} from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+
+  constructor() {
+    this.checkAuthStatus().subscribe();
+  }
+
   private readonly basePath = environment.basePath;
   private http = inject(HttpClient)
   private _currentUser = signal<User|null>(null);
@@ -20,15 +25,38 @@ export class AuthService {
     const body = { email, password };
 
     return this.http.post<LoginResponse>(`${this.basePath}/auth/login`, body).pipe(
-      tap( res => {
-        this._currentUser.set(res.user);
-        this._authStatus.set(AuthStatus.AUTHENTICATED)
-      }),
-      map( res => {
-        localStorage.setItem('token', res.token);
-        return true
-      }),
+      map(({user, token}) => this.setAuthParams(AuthStatus.AUTHENTICATED, user, token)),
       catchError( err => throwError( () => err.error.message ))
     );
+  }
+
+  checkAuthStatus(): Observable<boolean> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      this.logout();
+      return of(false);
+    }
+    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+
+    return this.http.get<CheckTokenResponse>(`${this.basePath}/auth/check-token`, { headers }).pipe(
+      map(({user, token}) => this.setAuthParams(AuthStatus.AUTHENTICATED, user, token)),
+      catchError((err) => {
+        this._authStatus.set(AuthStatus.NOT_AUTHENTICATED);
+        return of(false);
+      })
+    );
+  }
+
+  private setAuthParams(authStatus: AuthStatus, user: User, token: string): boolean {
+    this._authStatus.set(authStatus);
+    this._currentUser.set(user);
+    localStorage.setItem('token', token);
+    return true;
+  }
+
+  logout(): void {
+    this._currentUser.set(null);
+    this._authStatus.set(AuthStatus.NOT_AUTHENTICATED);
+    localStorage.removeItem('token');
   }
 }

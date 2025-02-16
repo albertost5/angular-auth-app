@@ -1,1 +1,7 @@
-<router-outlet />
+@if (!isAuthenticated) {
+  <h1>Loading...</h1>
+} @else {
+  <router-outlet />
+}
+
+
