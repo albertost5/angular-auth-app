@@ -6,12 +6,12 @@ export const routes: Routes = [
   {
     path: 'auth',
     canActivate: [isNotAuthenticatedGuard],
-    loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
+    loadChildren: () => import('./auth/auth.routes').then(m => m.default),
   },
   {
     path: 'dashboard',
     canActivate: [isAuthenticatedGuard],
-    loadChildren: () => import('./dashboard/dashboard.module').then(m => m.DashboardModule),
+    loadChildren: () => import('./dashboard/dashboard.routes').then(m => m.default),
   },
   {
     path: '**',
